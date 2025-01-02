@@ -202,6 +202,72 @@ export async function getReceipts(
   return cachedPromise;
 }
 
+export async function getAllReceipts(address: string): Promise<Receipt[]> {
+  const suiClient = getSuiClient();
+  const nfts: Receipt[] = [];
+  const allObjects: Receipt[] = [];
+  let currentCursor: string | null | undefined = null;
+
+  // Collect all objects first
+  while (true) {
+    const paginatedObjects: PaginatedObjectsResponse =
+      await suiClient.getOwnedObjects({
+        owner: address,
+        cursor: currentCursor,
+        filter: {
+          MatchAny: Object.keys(poolInfo).map((pool) => {
+            return {
+              StructType: poolInfo[pool].receiptType,
+            };
+          }),
+        },
+        options: {
+          showContent: true,
+        },
+      });
+
+    paginatedObjects.data.forEach((obj) => {
+      allObjects.push(obj.data as Receipt);
+    });
+
+    if (paginatedObjects.hasNextPage && paginatedObjects.nextCursor) {
+      currentCursor = paginatedObjects.nextCursor;
+    } else {
+      break;
+    }
+  }
+  // Group objects by content type
+  const groupedObjects: { [key: string]: Receipt[] } = {};
+
+  allObjects.forEach((o) => {
+    const contentType = o.content.type;
+    const poolName = Object.keys(poolInfo).find(
+      (pool) => poolInfo[pool].receiptType === contentType,
+    );
+
+    if (!poolName) {
+      return;
+    }
+
+    if (!groupedObjects[poolName]) {
+      groupedObjects[poolInfo[poolName].receiptName] = [];
+    }
+
+    if (poolName) {
+      groupedObjects[poolInfo[poolName].receiptName].push(o);
+      nfts.push(o);
+    }
+  });
+
+  // Store grouped objects in cache
+  Object.values(poolInfo).forEach((pool) => {
+    const receiptsCacheKey = `getReceipts-${pool.receiptName}-${address}`;
+    receiptsCache.set(receiptsCacheKey, groupedObjects[pool.receiptName] || []);
+  });
+
+  return nfts;
+}
+
 const poolCache = new SimpleCache<PoolType | AlphaPoolType>();
 const poolPromiseCache = new SimpleCache<Promise<PoolType | AlphaPoolType>>();
 
