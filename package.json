@@ -1,5 +1,5 @@
 {
-  "name": "@alphafi/alphafi-sdk",
+  "name": "@getnimbus/alphafi-sdk",
   "version": "0.0.50",
   "description": "Official AlphaFi SDK to access AlphaFi data",
   "type": "module",
