@@ -27,13 +27,7 @@ import {
 } from "./utils/userHoldings.js";
 import { getMultiLatestPrices } from "./utils/prices.js";
 import { poolInfo } from "./common/maps.js";
-import {
-  getMultiCetusPool,
-  getMultiInvestor,
-  getMultiParentPool,
-  getMultiPool,
-  getMultiReceipts,
-} from "./index.js";
+import { getAllReceipts } from "./sui-sdk/functions/getReceipts.js";
 
 export async function getXTokenVaultBalanceForActiveUsers(
   params: GetVaultBalanceForActiveUsersParams,
@@ -117,17 +111,16 @@ export async function getVaultBalance(
   address?: string,
   poolName?: PoolName,
   multiGet?: MultiGetVaultBalancesParams,
+  ignoreUsd?: boolean,
 ): Promise<VaultBalance> {
   if (address && poolName && !multiGet) {
-    await Promise.all([
-      getMultiLatestPrices(),
-      getMultiCetusPool(),
-      getMultiInvestor(),
-      getMultiParentPool(),
-      getMultiReceipts(address),
-      getMultiPool(),
-    ]);
-    const vaultBalance = await fetchUserVaultBalances(address, poolName, false);
+    const vaultBalance = await fetchUserVaultBalances(
+      address,
+      poolName,
+      false,
+      ignoreUsd,
+    );
+
     return vaultBalance;
   } else if (!address && !poolName && multiGet) {
     // multirun
@@ -215,11 +208,22 @@ export async function getDoubleAssetVaultBalance(
 
 export async function getAllVaultBalances(
   address: string,
+  ignoreUsd: boolean = false,
 ): Promise<Map<PoolName, AlphaFiVaultBalance>> {
+  await getAllReceipts(address); // Cache all receipts
+  if (!ignoreUsd) {
+    await getMultiLatestPrices();
+  }
+
   const pools = Object.keys(poolInfo);
   const res = new Map<PoolName, AlphaFiVaultBalance>();
   const promises = pools.map(async (pool) => {
-    const result = await getVaultBalance(address, pool as PoolName);
+    const result = await getVaultBalance(
+      address,
+      pool as PoolName,
+      undefined,
+      ignoreUsd,
+    );
     res.set(pool as PoolName, result as AlphaFiVaultBalance);
   });
   await Promise.all(promises);
