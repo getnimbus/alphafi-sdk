@@ -18,6 +18,7 @@ export async function fetchUserVaultBalances(
   address: string,
   poolName: PoolName,
   ignoreCache: boolean,
+  ignoreUsd: boolean = false,
 ): Promise<AlphaFiVaultBalance | undefined> {
   const suiClient = getSuiClient();
 
@@ -32,11 +33,13 @@ export async function fetchUserVaultBalances(
       },
       ignoreCache,
     );
-    const lockedPortfolioAmountInUSD = await getAlphaPortfolioAmountInUSD(
-      "ALPHA",
-      { suiClient, address, isLocked: true },
-      ignoreCache,
-    );
+    const lockedPortfolioAmountInUSD = !ignoreUsd
+      ? await getAlphaPortfolioAmountInUSD(
+          "ALPHA",
+          { suiClient, address, isLocked: true },
+          ignoreCache,
+        )
+      : "0";
     const unlockedPortfolioAmount = await getAlphaPortfolioAmount(
       "ALPHA",
       {
@@ -46,11 +49,13 @@ export async function fetchUserVaultBalances(
       },
       ignoreCache,
     );
-    const unlockedPortfolioAmountInUSD = await getAlphaPortfolioAmountInUSD(
-      "ALPHA",
-      { suiClient, address, isLocked: false },
-      ignoreCache,
-    );
+    const unlockedPortfolioAmountInUSD = !ignoreUsd
+      ? await getAlphaPortfolioAmountInUSD(
+          "ALPHA",
+          { suiClient, address, isLocked: false },
+          ignoreCache,
+        )
+      : "0";
     const portfolioAmount = await getAlphaPortfolioAmount(
       "ALPHA",
       {
@@ -59,14 +64,16 @@ export async function fetchUserVaultBalances(
       },
       ignoreCache,
     );
-    const portfolioAmountInUSD = await getAlphaPortfolioAmountInUSD(
-      "ALPHA",
-      {
-        suiClient,
-        address,
-      },
-      ignoreCache,
-    );
+    const portfolioAmountInUSD = !ignoreUsd
+      ? await getAlphaPortfolioAmountInUSD(
+          "ALPHA",
+          {
+            suiClient,
+            address,
+          },
+          ignoreCache,
+        )
+      : "0";
     if (
       lockedPortfolioAmount !== undefined &&
       lockedPortfolioAmountInUSD !== undefined &&
@@ -91,11 +98,13 @@ export async function fetchUserVaultBalances(
       address,
       ignoreCache,
     );
-    const portfolioAmountInUSD = await getDoubleAssetPortfolioAmountInUSD(
-      poolName as PoolName,
-      address,
-      ignoreCache,
-    );
+    const portfolioAmountInUSD = !ignoreUsd
+      ? await getDoubleAssetPortfolioAmountInUSD(
+          poolName as PoolName,
+          address,
+          ignoreCache,
+        )
+      : "0";
     if (portfolioAmount !== undefined && portfolioAmountInUSD !== undefined) {
       const res: AlphaFiVaultBalance = {
         coinA: portfolioAmount[0].toString(),
@@ -110,11 +119,13 @@ export async function fetchUserVaultBalances(
       address,
       ignoreCache,
     );
-    const portfolioAmountInUSD = await getSingleAssetPortfolioAmountInUSD(
-      poolName as SingleAssetPoolNames,
-      address,
-      ignoreCache,
-    );
+    const portfolioAmountInUSD = !ignoreUsd
+      ? await getSingleAssetPortfolioAmountInUSD(
+          poolName as SingleAssetPoolNames,
+          address,
+          ignoreCache,
+        )
+      : "0";
     if (portfolioAmount !== undefined && portfolioAmountInUSD !== undefined) {
       const res: AlphaFiVaultBalance = {
         coin: portfolioAmount.toString(),
