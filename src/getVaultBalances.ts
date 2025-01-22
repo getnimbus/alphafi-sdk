@@ -27,6 +27,13 @@ import {
 } from "./utils/userHoldings.js";
 import { getMultiLatestPrices } from "./utils/prices.js";
 import { poolInfo } from "./common/maps.js";
+import {
+  getMultiCetusPool,
+  getMultiInvestor,
+  getMultiParentPool,
+  getMultiPool,
+  getMultiReceipts,
+} from "./index.js";
 import { getAllReceipts } from "./sui-sdk/functions/getReceipts.js";
 
 export async function getXTokenVaultBalanceForActiveUsers(
@@ -114,6 +121,15 @@ export async function getVaultBalance(
   ignoreUsd?: boolean,
 ): Promise<VaultBalance> {
   if (address && poolName && !multiGet) {
+    await Promise.all([
+      getMultiLatestPrices(),
+      getMultiCetusPool(),
+      getMultiInvestor(),
+      getMultiParentPool(),
+      getMultiReceipts(address),
+      getMultiPool(),
+    ]);
+
     const vaultBalance = await fetchUserVaultBalances(
       address,
       poolName,

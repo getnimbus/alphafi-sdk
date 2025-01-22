@@ -26,12 +26,13 @@ import {
 import { Decimal } from "decimal.js";
 import { Transaction } from "@mysten/sui/transactions";
 import { conf, CONF_ENV } from "./common/constants.js";
+import { getSuiClient } from "./index.js";
 
 export async function getCurrentTick(poolName: PoolName) {
   const parentPool = await getParentPool(poolName, false);
   const current_sqrt_price = parentPool.content.fields.current_sqrt_price;
   const tick = TickMath.sqrtPriceX64ToTickIndex(new BN(current_sqrt_price));
-  return tick.toString();
+  return tick;
 }
 
 export async function getPositionTicks(poolName: PoolName) {
@@ -46,25 +47,45 @@ export async function getPositionTicks(poolName: PoolName) {
   if (upperTick > upperBound) {
     upperTick = -~(upperTick - 1);
   }
-  return [lowerTick.toString(), upperTick.toString()];
+  return [lowerTick, upperTick];
 }
 
-export async function getTickToPrice(poolName: PoolName, tick: string) {
+export function getTickToPrice(poolName: PoolName, tick: number) {
   const coinAName = doubleAssetPoolCoinMap[poolName].coin1;
-  const coinA = coinsList[coinAName];
   const coinBName = doubleAssetPoolCoinMap[poolName].coin2;
-  const coinB = coinsList[coinBName];
-  const price = TickMath.tickIndexToPrice(Number(tick), coinA.expo, coinB.expo);
+  const price = TickMath.tickIndexToPrice(
+    tick,
+    coinsList[coinAName].expo,
+    coinsList[coinBName].expo,
+  );
   return price.toString();
 }
 
-export async function getPriceToTick(poolName: PoolName, price: string) {
+export function getPriceToTick(
+  poolName: PoolName,
+  price: string,
+  tickSpacing: number,
+  isUpper: boolean = false,
+) {
   const coinAName = doubleAssetPoolCoinMap[poolName].coin1;
-  const coinA = coinsList[coinAName];
   const coinBName = doubleAssetPoolCoinMap[poolName].coin2;
-  const coinB = coinsList[coinBName];
+  let tick = TickMath.priceToTickIndex(
+    new Decimal(price),
+    coinsList[coinAName].expo,
+    coinsList[coinBName].expo,
+  );
+  if (tick % tickSpacing) {
+    if (isUpper === tick > 0) {
+      tick = tick + tickSpacing - (tick % tickSpacing);
+    } else {
+      tick = tick - (tick % tickSpacing);
+    }
+  }
+  return tick;
+}
+
+export async function getTickSpacing(poolName: PoolName) {
   const parentPool = await getParentPool(poolName, false);
-  console.log(parentPool.content.fields);
   let tickSpacing = 1;
   if (poolInfo[poolName].parentProtocolName === "CETUS") {
     tickSpacing = (parentPool as CetusPoolType).content.fields.tick_spacing;
@@ -72,33 +93,44 @@ export async function getPriceToTick(poolName: PoolName, price: string) {
     tickSpacing = (parentPool as BluefinPoolType).content.fields.ticks_manager
       .fields.tick_spacing;
   }
-  const priceDecimal = new Decimal(price);
-  const tick = TickMath.priceToInitializableTickIndex(
-    priceDecimal,
-    coinA.expo,
-    coinB.expo,
-    tickSpacing,
-  );
-  return tick.toString();
+  return tickSpacing;
 }
 
 export const setWeights = async (
   poolIdNames: string[],
   weightsString: string[],
   setWeightCoinType: CoinName,
-  adminCap: string,
+  address: string,
 ) => {
   const poolIds: string[] = [];
   const txb = new Transaction();
   poolIdNames.forEach((poolName) => {
     poolIds.push(poolInfo[poolName].poolId);
   });
+  const adminCap = await getSuiClient().getOwnedObjects({
+    owner: address,
+    filter: {
+      StructType:
+        "0x9bbd650b8442abb082c20f3bc95a9434a8d47b4bef98b0832dab57c1a8ba7123::distributor::AdminCap",
+    },
+    options: {
+      showContent: true,
+    },
+  });
+  if (!adminCap.data || adminCap.data.length === 0) {
+    throw new Error("No adminCap data found.");
+  }
 
+  if (!adminCap.data[0].data) {
+    throw new Error("adminCap.data[0].data is undefined.");
+  }
+
+  const objectId = adminCap.data[0].data.objectId;
   txb.moveCall({
     target: `${conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID}::distributor::set_weights`,
     typeArguments: [coinsList[setWeightCoinType].type],
     arguments: [
-      txb.object(adminCap),
+      txb.object(objectId),
       txb.object(conf[CONF_ENV].ALPHA_DISTRIBUTOR),
       txb.object(conf[CONF_ENV].VERSION),
       txb.pure.vector("id", poolIds),

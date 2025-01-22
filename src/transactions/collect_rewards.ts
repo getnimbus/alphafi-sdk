@@ -3,6 +3,8 @@ import {
   coinsList,
   doubleAssetPoolCoinMap,
   getConf,
+  getMultiReceipts,
+  getReceipts,
   poolInfo,
   PoolName,
   singleAssetPoolCoinMap,
@@ -10,7 +12,7 @@ import {
 
 export async function claimRewardTxb(address: string) {
   const txb = new Transaction();
-  const { getReceipts } = await import("../index.js");
+  await getMultiReceipts(address);
   const alphaReceipt = await getReceipts("ALPHA", address, false);
   let alpha_receipt: any;
   if (alphaReceipt.length == 0) {
@@ -164,7 +166,13 @@ export async function claimRewardTxb(address: string) {
                 ],
               });
             });
-          } else if (poolName === "BLUEFIN-STSUI-USDC") {
+          } else if (
+            poolName === "BLUEFIN-STSUI-USDC" ||
+            poolName === "BLUEFIN-STSUI-WSOL" ||
+            poolName === "BLUEFIN-STSUI-ETH" ||
+            poolName === "BLUEFIN-STSUI-BUCK" ||
+            poolName === "BLUEFIN-STSUI-MUSD"
+          ) {
             receipts.forEach((receipt) => {
               alpha_receipt = txb.moveCall({
                 target: `${poolInfo[poolName].packageId}::alphafi_bluefin_stsui_first_pool::get_user_rewards_all`,

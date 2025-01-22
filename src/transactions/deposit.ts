@@ -46,14 +46,6 @@ export async function depositSingleAssetTxb(
       txb = await naviDepositTx(amount, poolName, { address });
     }
   }
-  if (
-    poolInfo[poolName].parentProtocolName === "NAVI" &&
-    poolInfo[poolName].strategyType === "LOOPING"
-  ) {
-    txb.setGasBudget(1_000_000_000);
-  } else {
-    txb.setGasBudget(500_000_000);
-  }
   txb.setSender(address);
   return txb;
 }
@@ -65,9 +57,9 @@ export async function depositDoubleAssetTxb(
   isAmountA: boolean,
 ) {
   let txb = new Transaction();
+  const coin1 = doubleAssetPoolCoinMap[poolName].coin1;
+  const coin2 = doubleAssetPoolCoinMap[poolName].coin2;
   if (poolInfo[poolName].parentProtocolName === "CETUS") {
-    const coin1 = doubleAssetPoolCoinMap[poolName].coin1;
-    const coin2 = doubleAssetPoolCoinMap[poolName].coin2;
     if (coin1 === "CETUS" && coin2 === "SUI") {
       txb = await depositCetusSuiTxb(amount, poolName, isAmountA, { address });
     } else if (coin2 === "SUI") {
@@ -78,8 +70,6 @@ export async function depositDoubleAssetTxb(
       txb = await depositCetusTxb(amount, poolName, isAmountA, { address });
     }
   } else if (poolInfo[poolName].parentProtocolName === "BLUEFIN") {
-    const coin1 = doubleAssetPoolCoinMap[poolName].coin1;
-    const coin2 = doubleAssetPoolCoinMap[poolName].coin2;
     if (
       poolName === "BLUEFIN-NAVX-VSUI" ||
       poolName === "BLUEFIN-ALPHA-USDC" ||
@@ -106,7 +96,6 @@ export async function depositDoubleAssetTxb(
       });
     }
   }
-  txb.setGasBudget(300_000_000);
   txb.setSender(address);
   return txb;
 }
