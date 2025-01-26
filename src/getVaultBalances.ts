@@ -122,7 +122,7 @@ export async function getVaultBalance(
 ): Promise<VaultBalance> {
   if (address && poolName && !multiGet) {
     await Promise.all([
-      getMultiLatestPrices(),
+      ignoreUsd ? Promise.resolve(true) : getMultiLatestPrices(),
       getMultiCetusPool(),
       getMultiInvestor(),
       getMultiParentPool(),
