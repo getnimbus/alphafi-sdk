@@ -210,7 +210,7 @@ export async function getAllVaultBalances(
   address: string,
   ignoreUsd: boolean = false,
 ): Promise<Map<PoolName, AlphaFiVaultBalance>> {
-  await getAllReceipts(address); // Cache all receipts
+  // await getAllReceipts(address); // Cache all receipts
   if (!ignoreUsd) {
     await getMultiLatestPrices();
   }
