@@ -247,7 +247,7 @@ export async function getAllReceipts(address: string): Promise<Receipt[]> {
         const cacheKey = `getReceipts-${matchingPool[1].receiptName}-${address}`;
         const existingCache = receiptsCache.get(cacheKey) || [];
         existingCache.push(receipt);
-        console.log("receipt", cacheKey, JSON.stringify(existingCache));
+        // console.log("receipt", cacheKey, JSON.stringify(existingCache));
         receiptsCache.set(cacheKey, existingCache);
 
         nfts.push(receipt);
