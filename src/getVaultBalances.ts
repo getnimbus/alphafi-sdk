@@ -27,7 +27,7 @@ import {
 } from "./utils/userHoldings.js";
 import { getMultiLatestPrices } from "./utils/prices.js";
 import { poolInfo } from "./common/maps.js";
-import { getAllReceipts } from "./sui-sdk/functions/getReceipts.js";
+import { getMultiReceipts } from "./sui-sdk/functions/getReceipts.js";
 
 export async function getXTokenVaultBalanceForActiveUsers(
   params: GetVaultBalanceForActiveUsersParams,
@@ -210,8 +210,7 @@ export async function getAllVaultBalances(
   address: string,
   ignoreUsd: boolean = false,
 ): Promise<Map<PoolName, AlphaFiVaultBalance>> {
-  // await getAllReceipts(address); // Cache all receipts
-  await getMultiReceipts(address);
+  await getMultiReceipts(address); // Cache all receipts
   if (!ignoreUsd) {
     await getMultiLatestPrices();
   }
