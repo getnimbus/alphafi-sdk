@@ -105,7 +105,11 @@ const receiptsCache = new SimpleCache<Receipt[]>(3600000);
 const receiptsPromiseCache = new SimpleCache<Promise<Receipt[]>>(3600000);
 
 export async function getMultiReceipts(address: string) {
+  return await getAllReceipts(address);
+
   try {
+    // TODO: Avoid this one
+    // throw new Error("Not implemented");
     const receiptMap = await fetchMultiReceipts(address);
     for (const pool of Object.keys(poolInfo)) {
       const cacheKey = `getReceipts-${poolInfo[pool].receiptName}-${address}`;
@@ -205,30 +209,50 @@ export async function getReceipts(
 export async function getAllReceipts(address: string): Promise<Receipt[]> {
   const suiClient = getSuiClient();
   const nfts: Receipt[] = [];
-  const allObjects: Receipt[] = [];
   let currentCursor: string | null | undefined = null;
 
-  // Collect all objects first
+  // Create a filter for all valid receipt types
+  const validReceiptTypes = Object.values(poolInfo)
+    .filter((pool) => pool.receiptType !== "")
+    .map((pool) => ({
+      StructType: pool.receiptType,
+    }));
+
+  // Collect all objects
   while (true) {
     const paginatedObjects: PaginatedObjectsResponse =
       await suiClient.getOwnedObjects({
         owner: address,
         cursor: currentCursor,
         filter: {
-          MatchAny: Object.keys(poolInfo).map((pool) => {
-            return {
-              StructType: poolInfo[pool].receiptType,
-            };
-          }),
+          MatchAny: validReceiptTypes,
         },
         options: {
           showContent: true,
         },
       });
 
-    paginatedObjects.data.forEach((obj) => {
-      allObjects.push(obj.data as Receipt);
-    });
+    // Process each receipt in the current page
+    for (const obj of paginatedObjects.data) {
+      const receipt = obj.data as Receipt;
+      if (!receipt?.content?.fields?.name) continue;
+
+      // Find the pool that matches this receipt's name
+      const matchingPool = Object.entries(poolInfo).find(
+        ([, info]) => info.receiptName === receipt.content.fields.name,
+      );
+
+      if (matchingPool) {
+        // Cache the receipt under its pool's key
+        const cacheKey = `getReceipts-${matchingPool[1].receiptName}-${address}`;
+        const existingCache = receiptsCache.get(cacheKey) || [];
+        existingCache.push(receipt);
+        console.log("receipt", cacheKey, JSON.stringify(existingCache));
+        receiptsCache.set(cacheKey, existingCache);
+
+        nfts.push(receipt);
+      }
+    }
 
     if (paginatedObjects.hasNextPage && paginatedObjects.nextCursor) {
       currentCursor = paginatedObjects.nextCursor;
@@ -236,34 +260,6 @@ export async function getAllReceipts(address: string): Promise<Receipt[]> {
       break;
     }
   }
-  // Group objects by content type
-  const groupedObjects: { [key: string]: Receipt[] } = {};
-
-  allObjects.forEach((o) => {
-    const contentType = o.content.type;
-    const poolName = Object.keys(poolInfo).find(
-      (pool) => poolInfo[pool].receiptType === contentType,
-    );
-
-    if (!poolName) {
-      return;
-    }
-
-    if (!groupedObjects[poolName]) {
-      groupedObjects[poolInfo[poolName].receiptName] = [];
-    }
-
-    if (poolName) {
-      groupedObjects[poolInfo[poolName].receiptName].push(o);
-      nfts.push(o);
-    }
-  });
-
-  // Store grouped objects in cache
-  Object.values(poolInfo).forEach((pool) => {
-    const receiptsCacheKey = `getReceipts-${pool.receiptName}-${address}`;
-    receiptsCache.set(receiptsCacheKey, groupedObjects[pool.receiptName] || []);
-  });
 
   return nfts;
 }
