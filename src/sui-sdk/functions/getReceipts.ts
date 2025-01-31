@@ -208,8 +208,11 @@ export async function getReceipts(
 
 export async function getAllReceipts(address: string): Promise<Receipt[]> {
   const suiClient = getSuiClient();
-  const nfts: Receipt[] = [];
+  const allReceipts: Receipt[] = [];
   let currentCursor: string | null | undefined = null;
+
+  // Create a map to store receipts grouped by pool
+  const receiptsByPool: { [key: string]: Receipt[] } = {};
 
   // Create a filter for all valid receipt types
   const validReceiptTypes = Object.values(poolInfo)
@@ -243,14 +246,14 @@ export async function getAllReceipts(address: string): Promise<Receipt[]> {
       );
 
       if (matchingPool) {
-        // Cache the receipt under its pool's key
-        const cacheKey = `getReceipts-${matchingPool[1].receiptName}-${address}`;
-        const existingCache = receiptsCache.get(cacheKey) || [];
-        existingCache.push(receipt);
-        // console.log("receipt", cacheKey, JSON.stringify(existingCache));
-        receiptsCache.set(cacheKey, existingCache);
-
-        nfts.push(receipt);
+        const poolName = matchingPool[1].receiptName;
+        // Initialize array for this pool if it doesn't exist
+        if (!receiptsByPool[poolName]) {
+          receiptsByPool[poolName] = [];
+        }
+        // Add receipt to its pool's array
+        receiptsByPool[poolName].push(receipt);
+        allReceipts.push(receipt);
       }
     }
 
@@ -261,7 +264,13 @@ export async function getAllReceipts(address: string): Promise<Receipt[]> {
     }
   }
 
-  return nfts;
+  // After collecting all receipts, store them in cache by pool
+  for (const [poolName, receipts] of Object.entries(receiptsByPool)) {
+    const cacheKey = `getReceipts-${poolName}-${address}`;
+    receiptsCache.set(cacheKey, receipts);
+  }
+
+  return allReceipts;
 }
 
 const poolCache = new SimpleCache<PoolType | AlphaPoolType>();
